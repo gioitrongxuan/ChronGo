@@ -7,7 +7,11 @@ const USER_KEY     = 'chrongo_user';
 
 // Replace with your Google Cloud OAuth 2.0 client ID
 // (APIs & Services → Credentials → OAuth 2.0 Client IDs)
-const GOOGLE_CLIENT_ID = '467685882670-s7hrebqib6p0t03j1vqqhatdlear0f9m.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID  = '467685882670-s7hrebqib6p0t03j1vqqhatdlear0f9m.apps.googleusercontent.com';
+
+// Get from Supabase: Project Settings → API
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
@@ -24,7 +28,8 @@ let deleteTargetId = null;
 let currentView   = 'timers';
 let currentPeriod = 'week';
 let periodOffset  = 0;
-let currentUser   = null;
+let currentUser    = null;
+let supabaseClient = null;
 
 // ===== Persistence =====
 function targetsKey()  { return currentUser ? `${TARGETS_KEY}_${currentUser.id}`  : TARGETS_KEY; }
@@ -32,7 +37,7 @@ function sessionsKey() { return currentUser ? `${SESSIONS_KEY}_${currentUser.id}
 
 function loadTargets()  { try { return JSON.parse(localStorage.getItem(targetsKey()))  || []; } catch { return []; } }
 function loadSessions() { try { return JSON.parse(localStorage.getItem(sessionsKey())) || []; } catch { return []; } }
-function saveTargets()  { try { localStorage.setItem(targetsKey(),  JSON.stringify(targets));  } catch {} }
+function saveTargets()  { try { localStorage.setItem(targetsKey(),  JSON.stringify(targets));  } catch {} syncTargetsUp(); }
 function saveSessions() { try { localStorage.setItem(sessionsKey(), JSON.stringify(sessions)); } catch {} }
 
 // ===== Helpers =====
@@ -91,6 +96,7 @@ function recordSession(target, actualSec) {
         date:        localDateStr(now),
     });
     saveSessions();
+    syncSessionUp(sessions.at(-1));
 }
 
 // ===== Clock display =====
@@ -416,8 +422,10 @@ function confirmDelete() {
         recordSession(t, t.remainingAtStart - getRemaining(t));
     }
 
-    targets = targets.filter(x => x.id !== deleteTargetId);
+    const idToDelete = deleteTargetId;
+    targets = targets.filter(x => x.id !== idToDelete);
     saveTargets();
+    deleteTargetFromCloud(idToDelete);
     renderAll();
     closeConfirmDelete();
     if (t) showToast(`🗑 Đã xóa "${t.name}"`);
@@ -785,9 +793,24 @@ function initGoogleAuth() {
     });
 }
 
-function handleCredentialResponse(response) {
-    const p = decodeJwt(response.credential);
-    currentUser = { id: p.sub, name: p.name, email: p.email, picture: p.picture };
+async function handleCredentialResponse(response) {
+    if (supabaseClient) {
+        const { data, error } = await supabaseClient.auth.signInWithIdToken({
+            provider: 'google',
+            token: response.credential,
+        });
+        if (error || !data.user) { showToast('⚠️ Đăng nhập thất bại'); return; }
+        const u = data.user;
+        currentUser = {
+            id:      u.id,
+            name:    u.user_metadata.full_name || u.user_metadata.name || u.email,
+            email:   u.email,
+            picture: u.user_metadata.avatar_url || u.user_metadata.picture || '',
+        };
+    } else {
+        const p = decodeJwt(response.credential);
+        currentUser = { id: p.sub, name: p.name, email: p.email, picture: p.picture };
+    }
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
     targets  = loadTargets();
     sessions = loadSessions();
@@ -796,9 +819,11 @@ function handleCredentialResponse(response) {
     renderAll();
     if (currentView === 'stats') renderStats();
     showToast(`👋 Xin chào, ${currentUser.name}!`);
+    if (supabaseClient) loadFromCloud().then(() => { renderAll(); if (currentView === 'stats') renderStats(); });
 }
 
-function signOut() {
+async function signOut() {
+    if (supabaseClient) await supabaseClient.auth.signOut();
     if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
     currentUser = null;
     localStorage.removeItem(USER_KEY);
@@ -858,6 +883,66 @@ function openProfileModal() {
 
 function closeProfileModal() {
     document.getElementById('profileOverlay').classList.remove('open');
+}
+
+// ===== Cloud sync (Supabase) =====
+function targetToRow(t) {
+    return { id: t.id, name: t.name, total: t.total, remaining: t.remaining,
+             remaining_at_start: t.remainingAtStart, started_at: t.startedAt,
+             status: t.status, color: t.color, created_at: t.createdAt };
+}
+function rowToTarget(r) {
+    return { id: r.id, name: r.name, total: r.total, remaining: r.remaining,
+             remainingAtStart: r.remaining_at_start, startedAt: r.started_at,
+             status: r.status, color: r.color, createdAt: r.created_at };
+}
+function sessionToRow(s) {
+    return { id: s.id, target_id: s.targetId, target_name: s.targetName,
+             target_color: s.targetColor, planned_sec: s.plannedSec,
+             actual_sec: s.actualSec, started_at: s.startedAt,
+             ended_at: s.endedAt, date: s.date };
+}
+function rowToSession(r) {
+    return { id: r.id, targetId: r.target_id, targetName: r.target_name,
+             targetColor: r.target_color, plannedSec: r.planned_sec,
+             actualSec: r.actual_sec, startedAt: r.started_at,
+             endedAt: r.ended_at, date: r.date };
+}
+
+async function syncTargetsUp() {
+    if (!supabaseClient || !currentUser || !targets.length) return;
+    const { error } = await supabaseClient.from('targets').upsert(targets.map(targetToRow));
+    if (error) console.warn('sync targets:', error.message);
+}
+async function deleteTargetFromCloud(id) {
+    if (!supabaseClient || !currentUser) return;
+    const { error } = await supabaseClient.from('targets').delete().eq('id', id);
+    if (error) console.warn('delete target:', error.message);
+}
+async function syncSessionUp(session) {
+    if (!supabaseClient || !currentUser) return;
+    const { error } = await supabaseClient.from('sessions').upsert(sessionToRow(session));
+    if (error) console.warn('sync session:', error.message);
+}
+async function clearAllSessionsFromCloud() {
+    if (!supabaseClient || !currentUser) return;
+    const { error } = await supabaseClient.from('sessions').delete().gt('ended_at', 0);
+    if (error) console.warn('clear sessions:', error.message);
+}
+async function loadFromCloud() {
+    if (!supabaseClient || !currentUser) return;
+    const [{ data: tRows, error: tErr }, { data: sRows, error: sErr }] = await Promise.all([
+        supabaseClient.from('targets').select('*').order('created_at', { ascending: true }),
+        supabaseClient.from('sessions').select('*').order('ended_at',  { ascending: true }),
+    ]);
+    if (!tErr && tRows) {
+        targets = tRows.map(rowToTarget);
+        try { localStorage.setItem(targetsKey(), JSON.stringify(targets)); } catch {}
+    }
+    if (!sErr && sRows) {
+        sessions = sRows.map(rowToSession);
+        try { localStorage.setItem(sessionsKey(), JSON.stringify(sessions)); } catch {}
+    }
 }
 
 // ===== Modal helpers =====
@@ -937,6 +1022,7 @@ document.getElementById('btnClearCancel').addEventListener('click', () => {
 document.getElementById('btnClearConfirm').addEventListener('click', () => {
     sessions = [];
     saveSessions();
+    clearAllSessionsFromCloud();
     document.getElementById('confirmClearOverlay').classList.remove('open');
     renderStats();
     showToast('🗑 Đã xóa toàn bộ lịch sử');
@@ -1015,6 +1101,27 @@ updateClock();
 updateAuthUI();
 renderAll();
 setInterval(tick, 1000);
+
+// Init Supabase
+if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
+        if (!session) return;
+        const u = session.user;
+        currentUser = {
+            id:      u.id,
+            name:    u.user_metadata.full_name || u.user_metadata.name || u.email,
+            email:   u.email,
+            picture: u.user_metadata.avatar_url || u.user_metadata.picture || '',
+        };
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+        targets  = loadTargets();
+        sessions = loadSessions();
+        updateAuthUI();
+        renderAll();
+        loadFromCloud().then(() => { renderAll(); if (currentView === 'stats') renderStats(); });
+    });
+}
 
 // Init Google auth (GIS script loads async)
 if (window.google?.accounts?.id) {
