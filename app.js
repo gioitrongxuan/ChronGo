@@ -7,7 +7,7 @@ const USER_KEY     = 'chrongo_user';
 
 // Replace with your Google Cloud OAuth 2.0 client ID
 // (APIs & Services → Credentials → OAuth 2.0 Client IDs)
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '467685882670-s7hrebqib6p0t03j1vqqhatdlear0f9m.apps.googleusercontent.com';
 
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
