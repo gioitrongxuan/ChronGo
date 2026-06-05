@@ -1,0 +1,92 @@
+name: 🔧 Fix Nginx (Emergency)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-nginx:
+    name: Reinstall & Restore Nginx
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🧹 Clean secret values
+        run: |
+          EC2_HOST_CLEAN=$(printf '%s' "${{ secrets.EC2_HOST }}"     | tr -d '[:space:]')
+          EC2_USER_CLEAN=$(printf '%s' "${{ secrets.EC2_USERNAME }}" | tr -d '[:space:]')
+          echo "EC2_HOST_CLEAN=${EC2_HOST_CLEAN}" >> $GITHUB_ENV
+          echo "EC2_USER_CLEAN=${EC2_USER_CLEAN}" >> $GITHUB_ENV
+
+      - name: 🔑 Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 10 -H "${{ env.EC2_HOST_CLEAN }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: 🔧 Reinstall nginx & restore config
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=20 \
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}" \
+              "set -e
+               echo '=== Reinstalling nginx ==='
+               sudo apt-get install --reinstall nginx nginx-common nginx-full -y
+
+               echo '=== Removing broken symlinks ==='
+               sudo find /etc/nginx/modules-enabled -type l ! -e -delete || true
+
+               echo '=== Restoring web directory ==='
+               sudo mkdir -p /var/www/chrongo
+               sudo chown -R \$USER:\$USER /var/www/chrongo
+
+               echo '=== Testing nginx config ==='
+               sudo nginx -t && echo 'Config OK'
+
+               echo '=== Starting nginx ==='
+               sudo systemctl enable nginx
+               sudo systemctl restart nginx
+               sudo systemctl status nginx --no-pager"
+
+      - name: 📤 Re-sync web files
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='nginx/' \
+            --exclude='*.md' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=20" \
+            ./ "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}:/var/www/chrongo/"
+
+      - name: ⚙️ Restore chrongo nginx config
+        run: |
+          scp -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              nginx/chrongo.conf \
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}:/tmp/chrongo.conf"
+
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}" \
+              "set -e
+               sudo cp /tmp/chrongo.conf /etc/nginx/sites-available/chrongo
+               sudo ln -sf /etc/nginx/sites-available/chrongo /etc/nginx/sites-enabled/chrongo
+               sudo nginx -t && sudo systemctl reload nginx
+               echo '✅ Nginx restored'"
+
+      - name: 🔍 Health check
+        run: |
+          sleep 3
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 "http://${{ env.EC2_HOST_CLEAN }}" \
+            -H "Host: chrongo.streamdy.com" || echo "000")
+          echo "HTTP status: $STATUS"
+          if [[ "$STATUS" == "200" || "$STATUS" == "301" || "$STATUS" == "302" ]]; then
+            echo "✅ Site is back online!"
+          else
+            echo "⚠️ HTTP $STATUS — check server logs"
+          fi
