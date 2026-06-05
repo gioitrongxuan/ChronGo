@@ -10,8 +10,8 @@ const USER_KEY     = 'chrongo_user';
 const GOOGLE_CLIENT_ID  = '467685882670-6rr0fnqdpch5gk78b188fqa8j6m0j47d.apps.googleusercontent.com';
 
 // Get from Supabase: Project Settings → API
-const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://epqohkagzvboncaciynl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_T7YEl_t8CizWqNAI7R0UiA_ZLTK6W3d';
 
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
