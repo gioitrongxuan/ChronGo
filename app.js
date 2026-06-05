@@ -27,10 +27,13 @@ let periodOffset  = 0;
 let currentUser   = null;
 
 // ===== Persistence =====
-function loadTargets()  { try { return JSON.parse(localStorage.getItem(TARGETS_KEY))  || []; } catch { return []; } }
-function loadSessions() { try { return JSON.parse(localStorage.getItem(SESSIONS_KEY)) || []; } catch { return []; } }
-function saveTargets()  { try { localStorage.setItem(TARGETS_KEY,  JSON.stringify(targets));  } catch {} }
-function saveSessions() { try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch {} }
+function targetsKey()  { return currentUser ? `${TARGETS_KEY}_${currentUser.id}`  : TARGETS_KEY; }
+function sessionsKey() { return currentUser ? `${SESSIONS_KEY}_${currentUser.id}` : SESSIONS_KEY; }
+
+function loadTargets()  { try { return JSON.parse(localStorage.getItem(targetsKey()))  || []; } catch { return []; } }
+function loadSessions() { try { return JSON.parse(localStorage.getItem(sessionsKey())) || []; } catch { return []; } }
+function saveTargets()  { try { localStorage.setItem(targetsKey(),  JSON.stringify(targets));  } catch {} }
+function saveSessions() { try { localStorage.setItem(sessionsKey(), JSON.stringify(sessions)); } catch {} }
 
 // ===== Helpers =====
 function pad(n) { return String(Math.abs(Math.floor(n))).padStart(2, '0'); }
@@ -786,8 +789,12 @@ function handleCredentialResponse(response) {
     const p = decodeJwt(response.credential);
     currentUser = { id: p.sub, name: p.name, email: p.email, picture: p.picture };
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    targets  = loadTargets();
+    sessions = loadSessions();
     closeLoginModal();
     updateAuthUI();
+    renderAll();
+    if (currentView === 'stats') renderStats();
     showToast(`👋 Xin chào, ${currentUser.name}!`);
 }
 
@@ -795,8 +802,12 @@ function signOut() {
     if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
     currentUser = null;
     localStorage.removeItem(USER_KEY);
+    targets  = loadTargets();
+    sessions = loadSessions();
     closeProfileModal();
     updateAuthUI();
+    renderAll();
+    if (currentView === 'stats') renderStats();
     showToast('👋 Đã đăng xuất');
 }
 
