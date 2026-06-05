@@ -600,9 +600,34 @@ function switchView(view) {
     currentView = view;
     document.getElementById('viewTimers').style.display = view === 'timers' ? '' : 'none';
     document.getElementById('viewStats').style.display  = view === 'stats'  ? '' : 'none';
-    document.getElementById('btnStats').classList.toggle('active', view === 'stats');
-    document.getElementById('btnAdd').style.display     = view === 'timers' ? '' : 'none';
+
+    // Update FAB stats item label
+    const statsLabel = document.getElementById('fabStatsLabel');
+    const statsIcon  = document.getElementById('fabStatsIcon');
+    if (view === 'stats') {
+        statsLabel.textContent = 'Đồng hồ';
+        statsIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>';
+    } else {
+        statsLabel.textContent = 'Thống kê';
+        statsIcon.innerHTML = '<rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/>';
+    }
+
     if (view === 'stats') renderStats();
+}
+
+// ===== FAB =====
+let fabOpen = false;
+
+function openFab() {
+    fabOpen = true;
+    document.getElementById('fab').classList.add('open');
+    document.getElementById('fabMenu').setAttribute('aria-hidden', 'false');
+}
+
+function closeFab() {
+    fabOpen = false;
+    document.getElementById('fab').classList.remove('open');
+    document.getElementById('fabMenu').setAttribute('aria-hidden', 'true');
 }
 
 function switchPeriod(period) {
@@ -630,19 +655,31 @@ function closeAddModal() { document.getElementById('modalOverlay').classList.rem
 
 // ===== Event wiring =====
 
-// Stats toggle button
-document.getElementById('btnStats').addEventListener('click', () => {
+// FAB main toggle
+document.getElementById('fabMain').addEventListener('click', () => {
+    fabOpen ? closeFab() : openFab();
+});
+
+// FAB backdrop closes menu
+document.getElementById('fabBackdrop').addEventListener('click', closeFab);
+
+// FAB: Add timer
+document.getElementById('fabItemAdd').addEventListener('click', () => {
+    closeFab();
+    if (currentView !== 'timers') switchView('timers');
+    setTimeout(openAddModal, currentView !== 'timers' ? 100 : 0);
+});
+
+// FAB: Toggle stats
+document.getElementById('fabItemStats').addEventListener('click', () => {
+    closeFab();
     switchView(currentView === 'stats' ? 'timers' : 'stats');
 });
 
-// Period tabs
-document.querySelectorAll('.period-tab').forEach(btn => {
-    btn.addEventListener('click', () => switchPeriod(btn.dataset.period));
-});
-
-// Add button
-document.getElementById('btnAdd').addEventListener('click', openAddModal);
+// Empty state add button
 document.getElementById('btnAddEmpty').addEventListener('click', openAddModal);
+
+// Period tabs
 
 // Modal
 document.getElementById('btnModalClose').addEventListener('click', closeAddModal);
