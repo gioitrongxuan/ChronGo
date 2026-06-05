@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ChronGo - Đếm ngược đa mục tiêu trong ngày">
+    <title>ChronGo – Đếm Ngược</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱</text></svg>">
+</head>
+<body>
+    <div class="app">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <div class="header-left">
+                    <h1 class="logo">ChronGo</h1>
+                    <div class="date-time">
+                        <span class="date-display" id="dateDisplay"></span>
+                        <span class="time-display" id="timeDisplay"></span>
+                    </div>
+                </div>
+                <button class="btn-add" id="btnAdd" title="Thêm mục tiêu mới">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span class="btn-add-text">Thêm mục tiêu</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="main">
+            <!-- Summary bar -->
+            <div class="summary-bar" id="summaryBar" style="display:none">
+                <div class="summary-item">
+                    <span class="summary-num" id="sumRunning">0</span>
+                    <span class="summary-label">Đang chạy</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-item">
+                    <span class="summary-num" id="sumPaused">0</span>
+                    <span class="summary-label">Tạm dừng</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-item">
+                    <span class="summary-num danger" id="sumOverdue">0</span>
+                    <span class="summary-label">Quá hạn</span>
+                </div>
+            </div>
+
+            <!-- Grid -->
+            <div class="targets-grid" id="targetsGrid">
+
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">⏱</div>
+                    <p class="empty-title">Chưa có mục tiêu nào</p>
+                    <p class="empty-sub">Nhấn <strong>+ Thêm mục tiêu</strong> để tạo đồng hồ đếm ngược đầu tiên</p>
+                    <button class="btn-add-empty" id="btnAddEmpty">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Tạo mục tiêu
+                    </button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Add/Edit -->
+    <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Thêm mục tiêu mới</h2>
+                <button class="modal-close" id="btnModalClose" aria-label="Đóng">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <form id="addForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="targetName">Tên mục tiêu</label>
+                    <input type="text" id="targetName" placeholder="VD: Học tiếng Anh, Tập gym…" maxlength="50" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Thời gian đếm ngược</label>
+                    <div class="time-inputs">
+                        <div class="time-input-group">
+                            <input type="number" id="inputHours" min="0" max="99" value="0">
+                            <span>giờ</span>
+                        </div>
+                        <div class="time-sep">:</div>
+                        <div class="time-input-group">
+                            <input type="number" id="inputMinutes" min="0" max="59" value="25">
+                            <span>phút</span>
+                        </div>
+                        <div class="time-sep">:</div>
+                        <div class="time-input-group">
+                            <input type="number" id="inputSeconds" min="0" max="59" value="0">
+                            <span>giây</span>
+                        </div>
+                    </div>
+                    <div class="quick-times">
+                        <button type="button" class="quick-btn" data-m="5">5p</button>
+                        <button type="button" class="quick-btn" data-m="10">10p</button>
+                        <button type="button" class="quick-btn" data-m="15">15p</button>
+                        <button type="button" class="quick-btn" data-m="25">25p</button>
+                        <button type="button" class="quick-btn" data-m="30">30p</button>
+                        <button type="button" class="quick-btn" data-m="60">60p</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Màu sắc</label>
+                    <div class="color-picker" id="colorPicker">
+                        <button type="button" class="color-btn active" data-color="#4ECDC4" style="background:#4ECDC4" title="Ngọc lam"></button>
+                        <button type="button" class="color-btn" data-color="#FF6B6B" style="background:#FF6B6B" title="Đỏ san hô"></button>
+                        <button type="button" class="color-btn" data-color="#FFD93D" style="background:#FFD93D" title="Vàng"></button>
+                        <button type="button" class="color-btn" data-color="#6BCB77" style="background:#6BCB77" title="Xanh lá"></button>
+                        <button type="button" class="color-btn" data-color="#4D96FF" style="background:#4D96FF" title="Xanh dương"></button>
+                        <button type="button" class="color-btn" data-color="#C77DFF" style="background:#C77DFF" title="Tím"></button>
+                        <button type="button" class="color-btn" data-color="#FF9A3C" style="background:#FF9A3C" title="Cam"></button>
+                        <button type="button" class="color-btn" data-color="#F72585" style="background:#F72585" title="Hồng"></button>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="btnCancel">Hủy</button>
+                    <button type="submit" class="btn-save">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        Thêm
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm delete modal -->
+    <div class="modal-overlay" id="confirmOverlay" role="dialog" aria-modal="true">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2>Xóa mục tiêu?</h2>
+            </div>
+            <p class="confirm-text">Hành động này không thể hoàn tác. Toàn bộ dữ liệu đếm ngược sẽ bị xóa.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnConfirmCancel">Hủy</button>
+                <button class="btn-danger" id="btnConfirmDelete">Xóa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

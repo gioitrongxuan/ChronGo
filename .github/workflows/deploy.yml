@@ -1,0 +1,101 @@
+name: 🚀 Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Lý do deploy thủ công'
+        required: false
+        default: 'Manual deploy'
+
+env:
+  DEPLOY_PATH: /var/www/chrongo
+  DOMAIN: chrongo.streamdy.com
+
+jobs:
+  deploy:
+    name: Deploy ChronGo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      # ── SSH setup ──────────────────────────────────────────────────────────
+      - name: 🔑 Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # ── Prepare remote directory ────────────────────────────────────────────
+      - name: 📁 Prepare web directory on EC2
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=15 \
+              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+              "sudo mkdir -p ${{ env.DEPLOY_PATH }} && \
+               sudo chown -R \$USER:\$USER ${{ env.DEPLOY_PATH }}"
+
+      # ── Copy web files ──────────────────────────────────────────────────────
+      - name: 📤 Sync web files
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='nginx/' \
+            --exclude='*.md' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=15" \
+            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:${{ env.DEPLOY_PATH }}/"
+
+      # ── Copy and apply nginx config ────────────────────────────────────────
+      - name: ⚙️ Configure nginx
+        run: |
+          # Upload nginx config
+          scp -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              nginx/chrongo.conf \
+              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/tmp/chrongo.conf"
+
+          # Install config and reload nginx
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" << 'EOF'
+          set -e
+          sudo cp /tmp/chrongo.conf /etc/nginx/sites-available/chrongo
+          sudo ln -sf /etc/nginx/sites-available/chrongo /etc/nginx/sites-enabled/chrongo
+          sudo nginx -t
+          sudo systemctl reload nginx
+          echo "✅ Nginx reloaded successfully"
+          EOF
+
+      # ── Health check ────────────────────────────────────────────────────────
+      - name: 🔍 Health check
+        run: |
+          sleep 3
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "http://${{ secrets.EC2_HOST }}" \
+            -H "Host: ${{ env.DOMAIN }}" || echo "000")
+          echo "HTTP status: $STATUS"
+          if [[ "$STATUS" == "200" || "$STATUS" == "301" || "$STATUS" == "302" ]]; then
+            echo "✅ Deploy successful — site is responding"
+          else
+            echo "⚠️  Site returned HTTP $STATUS — check nginx logs on EC2"
+          fi
+
+      # ── Summary ─────────────────────────────────────────────────────────────
+      - name: 📋 Deploy summary
+        if: always()
+        run: |
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain**: http://${{ env.DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
