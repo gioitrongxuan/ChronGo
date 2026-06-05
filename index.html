@@ -162,16 +162,30 @@
                 <div class="breakdown-list" id="breakdownList"></div>
             </div>
 
-            <!-- Smart Insights -->
-            <div class="insights-block" id="insightsBlock" style="display:none">
-                <h3 class="section-title">💡 Gợi ý thông minh</h3>
-                <div id="insightsDistWrap">
-                    <p class="insights-sub">Phân bổ thời gian</p>
-                    <div class="insights-list" id="insightsDist"></div>
+            <!-- AI Insights -->
+            <div class="insights-block" id="insightsBlock">
+                <div class="insights-header">
+                    <h3 class="section-title">💡 Phân tích AI</h3>
+                    <button class="btn-ai-analyze" id="btnAnalyzeAI">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        Phân tích
+                    </button>
                 </div>
-                <div id="insightsPeakWrap" style="margin-top:18px">
-                    <p class="insights-sub">Thời điểm hiệu quả nhất trong ngày</p>
-                    <div class="insights-list" id="insightsPeak"></div>
+                <div id="aiEmpty" class="ai-empty">Nhấn <strong>Phân tích</strong> để AI khám phá thói quen làm việc của bạn</div>
+                <div id="aiLoading" style="display:none" class="ai-loading">
+                    <div class="ai-spinner"></div>
+                    <span>Đang phân tích dữ liệu…</span>
+                </div>
+                <div id="aiResult" style="display:none">
+                    <p class="ai-summary" id="aiSummary"></p>
+                    <div class="chart-header" style="margin-top:16px">
+                        <span class="chart-title" style="font-size:.88rem">Hiệu quả theo giờ trong ngày</span>
+                        <span class="chart-unit">%</span>
+                    </div>
+                    <div class="ai-chart-wrap">
+                        <svg id="aiLineChart" class="ai-line-chart"></svg>
+                    </div>
+                    <div class="ai-peaks" id="aiPeaks"></div>
                 </div>
             </div>
 

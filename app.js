@@ -13,6 +13,9 @@ const GOOGLE_CLIENT_ID  = '467685882670-6rr0fnqdpch5gk78b188fqa8j6m0j47d.apps.go
 const SUPABASE_URL      = 'https://epqohkagzvboncaciynl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T7YEl_t8CizWqNAI7R0UiA_ZLTK6W3d';
 
+// DeepSeek API — get from platform.deepseek.com
+const DEEPSEEK_API_KEY  = 'YOUR_DEEPSEEK_API_KEY';
+
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 const MONTHS_VI = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
@@ -620,7 +623,6 @@ function renderStats() {
 
     // Sessions list
     renderSessionsList(filtered.slice().reverse().slice(0, 50));
-    renderInsights();
 }
 
 function renderBarChart(items) {
@@ -674,138 +676,133 @@ function renderBreakdown(items, totalSec) {
     });
 }
 
-// ===== Smart Insights =====
-const TIME_SLOTS = [
-    { start: 5,  end: 9,  label: '5h – 9h',   name: 'Sáng sớm'   },
-    { start: 9,  end: 12, label: '9h – 12h',  name: 'Buổi sáng'  },
-    { start: 12, end: 14, label: '12h – 14h', name: 'Buổi trưa'  },
-    { start: 14, end: 17, label: '14h – 17h', name: 'Buổi chiều' },
-    { start: 17, end: 20, label: '17h – 20h', name: 'Buổi tối'   },
-    { start: 20, end: 24, label: '20h – 24h', name: 'Tối muộn'   },
-    { start: 0,  end: 5,  label: '0h – 5h',   name: 'Đêm khuya'  },
-];
+// ===== AI Analysis (DeepSeek) =====
+async function analyzeWithAI() {
+    if (!sessions.length) { showToast('⚠️ Chưa có dữ liệu phiên làm việc'); return; }
 
-function getTimeSlot(ts) {
-    const h = new Date(ts).getHours();
-    return TIME_SLOTS.find(s => h >= s.start && h < s.end) || TIME_SLOTS[0];
+    const btn = document.getElementById('btnAnalyzeAI');
+    btn.disabled = true;
+    document.getElementById('aiEmpty').style.display   = 'none';
+    document.getElementById('aiLoading').style.display = '';
+    document.getElementById('aiResult').style.display  = 'none';
+
+    // Summarize by hour to save tokens
+    const hourly = Array.from({ length: 24 }, (_, h) => {
+        const hs = sessions.filter(s => new Date(s.startedAt).getHours() === h);
+        if (!hs.length) return null;
+        const eff = hs.reduce((a, s) => a + Math.min(s.actualSec, s.plannedSec) / s.plannedSec, 0) / hs.length;
+        return { hour: h, sessions: hs.length, efficiency: Math.round(eff * 100) };
+    }).filter(Boolean);
+
+    const targetCounts = {};
+    sessions.forEach(s => { targetCounts[s.targetName] = (targetCounts[s.targetName] || 0) + 1; });
+    const targetStr = Object.entries(targetCounts).map(([n, c]) => `${n}(${c})`).join(', ');
+
+    const prompt = `Dữ liệu hiệu quả làm việc theo giờ địa phương:
+${JSON.stringify(hourly)}
+Mục tiêu: ${targetStr}
+
+Trả về JSON, không có text khác:
+{"hourly":[{"hour":0,"efficiency":0},…,{"hour":23,"efficiency":0}],"peaks":[{"start":9,"end":11,"label":"Tên đỉnh","efficiency":87}],"summary":"nhận xét 1-2 câu tiếng Việt"}`;
+
+    try {
+        const res = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: [
+                    { role: 'system', content: 'Productivity analytics assistant. Return ONLY valid JSON, no markdown, no explanation.' },
+                    { role: 'user',   content: prompt },
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0.2,
+            }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json   = await res.json();
+        const result = JSON.parse(json.choices[0].message.content);
+
+        document.getElementById('aiLoading').style.display = 'none';
+        document.getElementById('aiResult').style.display  = '';
+        document.getElementById('aiSummary').textContent   = result.summary || '';
+        renderAILineChart(result.hourly || [], result.peaks || []);
+        renderAIPeaks(result.peaks || []);
+    } catch (err) {
+        document.getElementById('aiLoading').style.display = 'none';
+        document.getElementById('aiEmpty').style.display   = '';
+        showToast(`⚠️ Phân tích thất bại: ${err.message}`);
+    }
+    btn.disabled = false;
 }
 
-function calcEff(list) {
-    const actual  = list.reduce((a, s) => a + Math.min(s.actualSec, s.plannedSec), 0);
-    const planned = list.reduce((a, s) => a + s.plannedSec, 0);
-    return planned > 0 ? actual / planned : 0;
-}
+function renderAILineChart(hourly, peaks) {
+    const el = document.getElementById('aiLineChart');
+    if (!el) return;
+    const VW = 600, VH = 180;
+    const P  = { t: 14, r: 16, b: 28, l: 36 };
+    const cw = VW - P.l - P.r, ch = VH - P.t - P.b;
 
-function computeInsights() {
-    // Use ALL sessions for broader pattern recognition
-    const byTarget = {};
-    sessions.forEach(s => {
-        if (!byTarget[s.targetId]) byTarget[s.targetId] = { name: s.targetName, color: s.targetColor, list: [] };
-        byTarget[s.targetId].list.push(s);
+    // Normalize to 24 buckets
+    const data = Array.from({ length: 24 }, (_, h) => {
+        const f = hourly.find(p => p.hour === h);
+        return f ? Math.min(100, Math.max(0, f.efficiency)) : 0;
     });
 
-    const distributions = [];
-    const peakHours     = [];
+    const x  = h => P.l + (h  / 23)   * cw;
+    const y  = v => P.t + ch - (v / 100) * ch;
+    const pts = data.map((v, h) => [x(h), y(v)]);
 
-    for (const { name, color, list } of Object.values(byTarget)) {
-        if (list.length < 3) continue;
-
-        // --- Distribution ---
-        const eff = calcEff(list);
-        const avgActualMin = Math.round(list.reduce((a, s) => a + s.actualSec, 0) / list.length / 60);
-        const plannedMin   = Math.round(list[0].plannedSec / 60);
-        let hint = null;
-        if (eff < 0.55 && list.length >= 4) {
-            const suggest = Math.max(5, avgActualMin);
-            hint = `Thường chỉ hoàn thành ${Math.round(eff*100)}% — thử đặt ${suggest}p thay vì ${plannedMin}p`;
-        } else if (eff >= 0.95 && list.length >= 4) {
-            hint = `Hoàn thành đều đặn — thử tăng lên ${plannedMin + 5}p để thách thức hơn`;
-        }
-        distributions.push({ name, color, eff: Math.round(eff * 100), hint, count: list.length });
-
-        // --- Peak hours ---
-        const slots = {};
-        list.forEach(s => {
-            const sl = getTimeSlot(s.startedAt);
-            if (!slots[sl.label]) slots[sl.label] = { slotName: sl.name, timeLabel: sl.label, list: [] };
-            slots[sl.label].list.push(s);
-        });
-
-        let best = null, bestEff = -1;
-        for (const slot of Object.values(slots)) {
-            if (slot.list.length < 2) continue;
-            const e = calcEff(slot.list);
-            if (e > bestEff) { bestEff = e; best = slot; }
-        }
-        if (best) {
-            peakHours.push({
-                name, color,
-                timeLabel: best.timeLabel,
-                slotName:  best.slotName,
-                eff:       Math.round(bestEff * 100),
-                count:     best.list.length,
-            });
-        }
+    let line = `M${pts[0]}`;
+    for (let i = 1; i < pts.length; i++) {
+        const dx = (pts[i][0] - pts[i-1][0]) * 0.4;
+        line += ` C${pts[i-1][0]+dx},${pts[i-1][1]} ${pts[i][0]-dx},${pts[i][1]} ${pts[i][0]},${pts[i][1]}`;
     }
+    const area = `${line} L${pts[23][0]},${P.t+ch} L${pts[0][0]},${P.t+ch}Z`;
 
-    // Sort: lowest efficiency first (most needs attention)
-    distributions.sort((a, b) => a.eff - b.eff);
-    return { distributions, peakHours };
+    const grid = [0, 25, 50, 75, 100].map(v =>
+        `<line x1="${P.l}" y1="${y(v)}" x2="${P.l+cw}" y2="${y(v)}" stroke="#2a2a3e" stroke-width="0.8"/>
+         <text x="${P.l-5}" y="${y(v)+4}" text-anchor="end" font-size="9" fill="#4a4a6a">${v}</text>`
+    ).join('');
+
+    const xAxis = [0,3,6,9,12,15,18,21].map(h =>
+        `<text x="${x(h)}" y="${VH-5}" text-anchor="middle" font-size="9" fill="#4a4a6a">${h}h</text>`
+    ).join('');
+
+    const peakZones = peaks.map(p => {
+        const x1 = x(Math.max(0, p.start)), x2 = x(Math.min(23, p.end));
+        return `<rect x="${x1}" y="${P.t}" width="${x2-x1}" height="${ch}" fill="rgba(78,205,196,0.1)" rx="3"/>
+                <text x="${(x1+x2)/2}" y="${P.t+11}" text-anchor="middle" font-size="9" fill="#4ECDC4" font-weight="bold">★</text>`;
+    }).join('');
+
+    const peakDots = peaks.map(p => {
+        const h = Math.min(23, Math.round((p.start + p.end) / 2));
+        return `<circle cx="${pts[h][0]}" cy="${pts[h][1]}" r="4.5" fill="#4ECDC4" stroke="#111118" stroke-width="2"/>`;
+    }).join('');
+
+    el.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+    el.innerHTML = `
+        <defs>
+            <linearGradient id="aig" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4ECDC4" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="#4ECDC4" stop-opacity="0.02"/>
+            </linearGradient>
+        </defs>
+        ${grid}${peakZones}
+        <path d="${area}" fill="url(#aig)"/>
+        <path d="${line}" fill="none" stroke="#4ECDC4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${peakDots}${xAxis}`;
 }
 
-function renderInsights() {
-    const block = document.getElementById('insightsBlock');
-    if (!block) return;
-
-    const { distributions, peakHours } = computeInsights();
-
-    // Distribution
-    const distWrap = document.getElementById('insightsDistWrap');
-    const distList  = document.getElementById('insightsDist');
-    if (distributions.length) {
-        distWrap.style.display = '';
-        distList.innerHTML = '';
-        distributions.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'insight-row';
-            row.innerHTML = `
-                <div class="insight-dot" style="background:${item.color}"></div>
-                <div class="insight-info">
-                    <div class="insight-name">${esc(item.name)}</div>
-                    ${item.hint ? `<div class="insight-hint">${item.hint}</div>` : ''}
-                    <div class="insight-meta">Dựa trên ${item.count} phiên</div>
-                </div>
-                <div class="insight-badge ${item.eff >= 90 ? 'good' : item.eff >= 60 ? 'ok' : 'low'}">${item.eff}%</div>`;
-            distList.appendChild(row);
-        });
-    } else {
-        distWrap.style.display = 'none';
-    }
-
-    // Peak hours
-    const peakWrap = document.getElementById('insightsPeakWrap');
-    const peakList  = document.getElementById('insightsPeak');
-    if (peakHours.length) {
-        peakWrap.style.display = '';
-        peakList.innerHTML = '';
-        peakHours.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'insight-row';
-            row.innerHTML = `
-                <div class="insight-dot" style="background:${item.color}"></div>
-                <div class="insight-info">
-                    <div class="insight-name">${esc(item.name)}</div>
-                    <div class="insight-time">${item.slotName} · ${item.timeLabel}</div>
-                    <div class="insight-meta">Dựa trên ${item.count} phiên ở khung giờ này</div>
-                </div>
-                <div class="insight-badge good">${item.eff}%</div>`;
-            peakList.appendChild(row);
-        });
-    } else {
-        peakWrap.style.display = 'none';
-    }
-
-    block.style.display = (distributions.length || peakHours.length) ? '' : 'none';
+function renderAIPeaks(peaks) {
+    const el = document.getElementById('aiPeaks');
+    if (!el) return;
+    el.innerHTML = peaks.map(p =>
+        `<span class="ai-peak-badge">⭐ ${esc(p.label || `${p.start}h–${p.end}h`)} · ${p.efficiency}%</span>`
+    ).join('');
 }
 
 function renderSessionsList(filtered) {
@@ -1103,6 +1100,9 @@ document.getElementById('fabItemAdd').addEventListener('click', () => {
     if (currentView !== 'timers') switchView('timers');
     setTimeout(openAddModal, currentView !== 'timers' ? 100 : 0);
 });
+
+// AI Analyze button
+document.getElementById('btnAnalyzeAI').addEventListener('click', analyzeWithAI);
 
 // FAB: Login / Profile
 document.getElementById('fabItemLogin').addEventListener('click', () => {
