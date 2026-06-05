@@ -93,6 +93,34 @@ function updateClock() {
         `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
+// ===== Day overview =====
+function updateDayOverview() {
+    const now     = new Date();
+    const TOTAL   = 86400;
+    const elapsed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const todayRemaining = TOTAL - elapsed;
+
+    const committed = Math.round(targets
+        .filter(t => t.status !== 'completed')
+        .reduce((acc, t) => acc + Math.max(0, getRemaining(t)), 0));
+
+    const free     = Math.max(0, todayRemaining - committed);
+    const overflow = committed > todayRemaining;
+
+    const elapsedPct   = (elapsed   / TOTAL) * 100;
+    const committedPct = Math.min((committed / TOTAL) * 100, 100 - elapsedPct);
+
+    document.getElementById('dovElapsed').style.width   = `${elapsedPct.toFixed(2)}%`;
+    document.getElementById('dovCommitted').style.width = `${committedPct.toFixed(2)}%`;
+
+    document.getElementById('dovStatElapsed').textContent   = formatDuration(elapsed);
+    document.getElementById('dovStatCommitted').textContent = committed > 0 ? formatDuration(committed) : '—';
+
+    const freeEl = document.getElementById('dovStatFree');
+    freeEl.textContent = overflow ? '0s' : formatDuration(free);
+    freeEl.className   = `dov-stat-value free${overflow ? ' overflow' : ''}`;
+}
+
 // ===== Summary bar =====
 function updateSummary() {
     const running = targets.filter(t => t.status === 'running').length;
@@ -131,6 +159,7 @@ function renderAll() {
     empty.style.display = 'none';
     targets.forEach(t => grid.appendChild(buildCard(t)));
     updateSummary();
+    updateDayOverview();
 }
 
 function buildCard(t) {
@@ -216,6 +245,7 @@ function buildCard(t) {
 // ===== Tick (in-place update for running timers) =====
 function tick() {
     updateClock();
+    updateDayOverview();
 
     let hasRunning = false;
     targets.forEach(t => {
