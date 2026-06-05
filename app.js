@@ -600,10 +600,8 @@ function switchView(view) {
     currentView = view;
     document.getElementById('viewTimers').style.display = view === 'timers' ? '' : 'none';
     document.getElementById('viewStats').style.display  = view === 'stats'  ? '' : 'none';
-    document.getElementById('tabTimers').classList.toggle('active', view === 'timers');
-    document.getElementById('tabStats').classList.toggle('active', view === 'stats');
-    document.getElementById('btnAdd').style.display = view === 'timers' ? '' : 'none';
-
+    document.getElementById('btnStats').classList.toggle('active', view === 'stats');
+    document.getElementById('btnAdd').style.display     = view === 'timers' ? '' : 'none';
     if (view === 'stats') renderStats();
 }
 
@@ -632,9 +630,9 @@ function closeAddModal() { document.getElementById('modalOverlay').classList.rem
 
 // ===== Event wiring =====
 
-// View tabs
-document.querySelectorAll('.view-tab').forEach(btn => {
-    btn.addEventListener('click', () => switchView(btn.dataset.view));
+// Stats toggle button
+document.getElementById('btnStats').addEventListener('click', () => {
+    switchView(currentView === 'stats' ? 'timers' : 'stats');
 });
 
 // Period tabs
