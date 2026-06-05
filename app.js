@@ -13,9 +13,6 @@ const GOOGLE_CLIENT_ID  = '467685882670-6rr0fnqdpch5gk78b188fqa8j6m0j47d.apps.go
 const SUPABASE_URL      = 'https://epqohkagzvboncaciynl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T7YEl_t8CizWqNAI7R0UiA_ZLTK6W3d';
 
-// DeepSeek API — get from platform.deepseek.com
-const DEEPSEEK_API_KEY  = 'YOUR_DEEPSEEK_API_KEY';
-
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 const MONTHS_VI = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
@@ -698,33 +695,13 @@ async function analyzeWithAI() {
     sessions.forEach(s => { targetCounts[s.targetName] = (targetCounts[s.targetName] || 0) + 1; });
     const targetStr = Object.entries(targetCounts).map(([n, c]) => `${n}(${c})`).join(', ');
 
-    const prompt = `Dữ liệu hiệu quả làm việc theo giờ địa phương:
-${JSON.stringify(hourly)}
-Mục tiêu: ${targetStr}
-
-Trả về JSON, không có text khác:
-{"hourly":[{"hour":0,"efficiency":0},…,{"hour":23,"efficiency":0}],"peaks":[{"start":9,"end":11,"label":"Tên đỉnh","efficiency":87}],"summary":"nhận xét 1-2 câu tiếng Việt"}`;
-
     try {
-        const res = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-            },
-            body: JSON.stringify({
-                model: 'deepseek-chat',
-                messages: [
-                    { role: 'system', content: 'Productivity analytics assistant. Return ONLY valid JSON, no markdown, no explanation.' },
-                    { role: 'user',   content: prompt },
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.2,
-            }),
+        if (!supabaseClient) throw new Error('Supabase chưa được cấu hình');
+        const { data: result, error: fnErr } = await supabaseClient.functions.invoke('analyze-sessions', {
+            body: { hourly, targetStr },
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json   = await res.json();
-        const result = JSON.parse(json.choices[0].message.content);
+        if (fnErr) throw new Error(fnErr.message);
+        if (result?.error) throw new Error(result.error);
 
         document.getElementById('aiLoading').style.display = 'none';
         document.getElementById('aiResult').style.display  = '';
