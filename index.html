@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ChronGo - Đếm ngược đa mục tiêu trong ngày">
+    <meta name="description" content="ChronGo – Đếm ngược đa mục tiêu &amp; thống kê thời gian">
     <title>ChronGo – Đếm Ngược</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱</text></svg>">
@@ -21,15 +21,25 @@
                         <span class="time-display" id="timeDisplay"></span>
                     </div>
                 </div>
-                <button class="btn-add" id="btnAdd" title="Thêm mục tiêu mới">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    <span class="btn-add-text">Thêm mục tiêu</span>
+                <nav class="view-tabs" role="tablist">
+                    <button class="view-tab active" id="tabTimers" role="tab" data-view="timers" aria-selected="true">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Đồng hồ
+                    </button>
+                    <button class="view-tab" id="tabStats" role="tab" data-view="stats" aria-selected="false">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        Thống kê
+                    </button>
+                </nav>
+                <button class="btn-add" id="btnAdd" title="Thêm mục tiêu mới (Ctrl+N)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span class="btn-add-text">Thêm</span>
                 </button>
             </div>
         </header>
 
-        <!-- Content -->
-        <main class="main">
+        <!-- ====== TIMERS VIEW ====== -->
+        <main class="main view-panel" id="viewTimers">
             <!-- Summary bar -->
             <div class="summary-bar" id="summaryBar" style="display:none">
                 <div class="summary-item">
@@ -46,27 +56,99 @@
                     <span class="summary-num danger" id="sumOverdue">0</span>
                     <span class="summary-label">Quá hạn</span>
                 </div>
+                <div class="summary-divider"></div>
+                <div class="summary-item">
+                    <span class="summary-num accent" id="sumTotalRemaining">—</span>
+                    <span class="summary-label">Còn lại</span>
+                </div>
             </div>
 
             <!-- Grid -->
             <div class="targets-grid" id="targetsGrid">
-
-                <!-- Empty state -->
                 <div class="empty-state" id="emptyState">
                     <div class="empty-icon">⏱</div>
                     <p class="empty-title">Chưa có mục tiêu nào</p>
-                    <p class="empty-sub">Nhấn <strong>+ Thêm mục tiêu</strong> để tạo đồng hồ đếm ngược đầu tiên</p>
+                    <p class="empty-sub">Nhấn <strong>+ Thêm</strong> để tạo đồng hồ đếm ngược đầu tiên</p>
                     <button class="btn-add-empty" id="btnAddEmpty">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Tạo mục tiêu
                     </button>
                 </div>
-
             </div>
+        </main>
+
+        <!-- ====== STATS VIEW ====== -->
+        <main class="main view-panel" id="viewStats" style="display:none">
+
+            <!-- Period tabs -->
+            <div class="period-bar">
+                <div class="period-tabs" role="tablist">
+                    <button class="period-tab" data-period="day"   role="tab">Hôm nay</button>
+                    <button class="period-tab active" data-period="week"  role="tab">Tuần này</button>
+                    <button class="period-tab" data-period="month" role="tab">Tháng này</button>
+                    <button class="period-tab" data-period="year"  role="tab">Năm nay</button>
+                </div>
+                <button class="btn-clear-stats" id="btnClearStats" title="Xóa toàn bộ lịch sử">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Xóa lịch sử
+                </button>
+            </div>
+
+            <!-- Summary cards -->
+            <div class="stat-cards" id="statCards">
+                <div class="stat-card">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-value" id="statTotalTime">—</div>
+                    <div class="stat-label">Thời gian tập trung</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-value" id="statSessions">—</div>
+                    <div class="stat-label">Phiên làm việc</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-value" id="statEfficiency">—</div>
+                    <div class="stat-label">Hiệu quả</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🏆</div>
+                    <div class="stat-value" id="statBestDay">—</div>
+                    <div class="stat-label">Ngày tốt nhất</div>
+                </div>
+            </div>
+
+            <!-- Bar chart -->
+            <div class="chart-block">
+                <div class="chart-header">
+                    <h3 class="chart-title" id="chartTitle">Thời gian theo ngày</h3>
+                    <span class="chart-unit">phút</span>
+                </div>
+                <div class="bar-chart-wrap">
+                    <div class="bar-chart" id="barChart"></div>
+                </div>
+            </div>
+
+            <!-- Target breakdown -->
+            <div class="breakdown-block" id="breakdownBlock">
+                <h3 class="section-title">Theo mục tiêu</h3>
+                <div class="breakdown-list" id="breakdownList"></div>
+            </div>
+
+            <!-- Recent sessions -->
+            <div class="sessions-block" id="sessionsBlock">
+                <h3 class="section-title" id="sessionsTitle">Phiên gần đây</h3>
+                <div class="sessions-list" id="sessionsList"></div>
+                <div class="empty-sessions" id="emptySessions" style="display:none">
+                    <p>Chưa có phiên nào trong khoảng thời gian này.</p>
+                    <p>Bắt đầu chạy một đồng hồ để ghi lại hoạt động.</p>
+                </div>
+            </div>
+
         </main>
     </div>
 
-    <!-- Modal Add/Edit -->
+    <!-- Modal Add Target -->
     <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal">
             <div class="modal-header">
@@ -80,7 +162,6 @@
                     <label for="targetName">Tên mục tiêu</label>
                     <input type="text" id="targetName" placeholder="VD: Học tiếng Anh, Tập gym…" maxlength="50" required>
                 </div>
-
                 <div class="form-group">
                     <label>Thời gian đếm ngược</label>
                     <div class="time-inputs">
@@ -108,25 +189,23 @@
                         <button type="button" class="quick-btn" data-m="60">60p</button>
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label>Màu sắc</label>
                     <div class="color-picker" id="colorPicker">
-                        <button type="button" class="color-btn active" data-color="#4ECDC4" style="background:#4ECDC4" title="Ngọc lam"></button>
-                        <button type="button" class="color-btn" data-color="#FF6B6B" style="background:#FF6B6B" title="Đỏ san hô"></button>
-                        <button type="button" class="color-btn" data-color="#FFD93D" style="background:#FFD93D" title="Vàng"></button>
-                        <button type="button" class="color-btn" data-color="#6BCB77" style="background:#6BCB77" title="Xanh lá"></button>
-                        <button type="button" class="color-btn" data-color="#4D96FF" style="background:#4D96FF" title="Xanh dương"></button>
-                        <button type="button" class="color-btn" data-color="#C77DFF" style="background:#C77DFF" title="Tím"></button>
-                        <button type="button" class="color-btn" data-color="#FF9A3C" style="background:#FF9A3C" title="Cam"></button>
-                        <button type="button" class="color-btn" data-color="#F72585" style="background:#F72585" title="Hồng"></button>
+                        <button type="button" class="color-btn active" data-color="#4ECDC4" style="background:#4ECDC4"></button>
+                        <button type="button" class="color-btn" data-color="#FF6B6B" style="background:#FF6B6B"></button>
+                        <button type="button" class="color-btn" data-color="#FFD93D" style="background:#FFD93D"></button>
+                        <button type="button" class="color-btn" data-color="#6BCB77" style="background:#6BCB77"></button>
+                        <button type="button" class="color-btn" data-color="#4D96FF" style="background:#4D96FF"></button>
+                        <button type="button" class="color-btn" data-color="#C77DFF" style="background:#C77DFF"></button>
+                        <button type="button" class="color-btn" data-color="#FF9A3C" style="background:#FF9A3C"></button>
+                        <button type="button" class="color-btn" data-color="#F72585" style="background:#F72585"></button>
                     </div>
                 </div>
-
                 <div class="modal-actions">
                     <button type="button" class="btn-cancel" id="btnCancel">Hủy</button>
                     <button type="submit" class="btn-save">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         Thêm
                     </button>
                 </div>
@@ -134,7 +213,7 @@
         </div>
     </div>
 
-    <!-- Confirm delete modal -->
+    <!-- Confirm delete -->
     <div class="modal-overlay" id="confirmOverlay" role="dialog" aria-modal="true">
         <div class="modal modal-sm">
             <div class="modal-header">
@@ -148,7 +227,21 @@
         </div>
     </div>
 
-    <!-- Notification toast -->
+    <!-- Confirm clear stats -->
+    <div class="modal-overlay" id="confirmClearOverlay" role="dialog" aria-modal="true">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2>Xóa lịch sử?</h2>
+            </div>
+            <p class="confirm-text">Toàn bộ lịch sử phiên làm việc sẽ bị xóa vĩnh viễn. Các đồng hồ hiện tại không bị ảnh hưởng.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnClearCancel">Hủy</button>
+                <button class="btn-danger" id="btnClearConfirm">Xóa tất cả</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
     <div class="toast" id="toast"></div>
 
     <script src="app.js"></script>
