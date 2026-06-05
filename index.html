@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ChronGo – Đếm ngược đa mục tiêu &amp; thống kê thời gian">
     <title>ChronGo – Đếm Ngược</title>
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='https://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱</text></svg>">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="app">
@@ -20,6 +21,10 @@
                         <span class="date-display" id="dateDisplay"></span>
                         <span class="time-display" id="timeDisplay"></span>
                     </div>
+                </div>
+                <div class="header-user" id="headerUser" style="display:none">
+                    <img class="header-avatar" id="headerAvatar" src="" alt="">
+                    <span class="header-username" id="headerUsername"></span>
                 </div>
             </div>
         </header>
@@ -175,6 +180,12 @@
     <!-- Floating Action Button -->
     <div class="fab" id="fab">
         <div class="fab-menu" id="fabMenu" aria-hidden="true">
+            <button class="fab-item" id="fabItemLogin">
+                <span class="fab-label" id="fabLoginLabel">Đăng nhập</span>
+                <div class="fab-mini" id="fabLoginMini">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+            </button>
             <button class="fab-item" id="fabItemStats">
                 <span class="fab-label" id="fabStatsLabel">Thống kê</span>
                 <div class="fab-mini">
@@ -287,9 +298,47 @@
         </div>
     </div>
 
+    <!-- Login modal -->
+    <div class="modal-overlay" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2 id="loginTitle">Đăng nhập</h2>
+                <button class="modal-close" id="btnLoginClose" aria-label="Đóng">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <p class="login-desc">Đăng nhập bằng tài khoản Google để cá nhân hóa trải nghiệm</p>
+            <div class="google-btn-wrap">
+                <div id="googleSignInBtn"></div>
+            </div>
+            <button class="btn-cancel btn-login-cancel" id="btnLoginCancel">Hủy</button>
+        </div>
+    </div>
+
+    <!-- Profile modal -->
+    <div class="modal-overlay" id="profileOverlay" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2 id="profileTitle">Tài khoản</h2>
+                <button class="modal-close" id="btnProfileClose" aria-label="Đóng">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="profile-info">
+                <img class="profile-avatar" id="profileAvatar" src="" alt="">
+                <div class="profile-name" id="profileName"></div>
+                <div class="profile-email" id="profileEmail"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnProfileCancel">Đóng</button>
+                <button class="btn-danger" id="btnSignOut">Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>

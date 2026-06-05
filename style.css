@@ -157,9 +157,10 @@ input  { font-family: var(--font); }
     pointer-events: none;
 }
 
-/* stagger: item closest to FAB (nth-child 2) appears first */
-.fab-item:nth-child(2) { transition-delay: 0s; }
-.fab-item:nth-child(1) { transition-delay: 0.06s; }
+/* stagger: item closest to FAB (nth-child 3) appears first */
+.fab-item:nth-child(3) { transition-delay: 0s; }
+.fab-item:nth-child(2) { transition-delay: 0.06s; }
+.fab-item:nth-child(1) { transition-delay: 0.12s; }
 
 .fab-label {
     background: var(--surface);
@@ -1159,6 +1160,90 @@ input  { font-family: var(--font); }
     pointer-events: none;
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ===== Header user / auth ===== */
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+}
+
+.header-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border2);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.header-username {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Avatar inside FAB mini circle */
+.fab-user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Login modal */
+.login-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+
+.google-btn-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+    min-height: 44px;
+}
+
+.btn-login-cancel {
+    width: 100%;
+    margin-top: 4px;
+}
+
+/* Profile modal */
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 24px;
+}
+
+.profile-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--border2);
+    object-fit: cover;
+    margin-bottom: 4px;
+}
+
+.profile-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.profile-email {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {

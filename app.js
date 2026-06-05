@@ -3,6 +3,11 @@
 // ===== Storage Keys =====
 const TARGETS_KEY  = 'chrongo_v1';
 const SESSIONS_KEY = 'chrongo_sessions_v1';
+const USER_KEY     = 'chrongo_user';
+
+// Replace with your Google Cloud OAuth 2.0 client ID
+// (APIs & Services → Credentials → OAuth 2.0 Client IDs)
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
 // ===== Vietnamese locale =====
 const DAYS_VI   = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
@@ -19,6 +24,7 @@ let deleteTargetId = null;
 let currentView   = 'timers';
 let currentPeriod = 'week';
 let periodOffset  = 0;
+let currentUser   = null;
 
 // ===== Persistence =====
 function loadTargets()  { try { return JSON.parse(localStorage.getItem(TARGETS_KEY))  || []; } catch { return []; } }
@@ -760,6 +766,89 @@ function showToast(msg) {
     toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
+// ===== Auth (Google Identity Services) =====
+function decodeJwt(token) {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+}
+
+function initGoogleAuth() {
+    if (!window.google?.accounts?.id) return;
+    google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+    });
+}
+
+function handleCredentialResponse(response) {
+    const p = decodeJwt(response.credential);
+    currentUser = { id: p.sub, name: p.name, email: p.email, picture: p.picture };
+    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    closeLoginModal();
+    updateAuthUI();
+    showToast(`👋 Xin chào, ${currentUser.name}!`);
+}
+
+function signOut() {
+    if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+    currentUser = null;
+    localStorage.removeItem(USER_KEY);
+    closeProfileModal();
+    updateAuthUI();
+    showToast('👋 Đã đăng xuất');
+}
+
+function updateAuthUI() {
+    const headerUser    = document.getElementById('headerUser');
+    const fabLoginLabel = document.getElementById('fabLoginLabel');
+    const fabLoginMini  = document.getElementById('fabLoginMini');
+    if (currentUser) {
+        document.getElementById('headerAvatar').src = currentUser.picture || '';
+        document.getElementById('headerUsername').textContent = currentUser.name;
+        headerUser.style.display = '';
+        fabLoginLabel.textContent = currentUser.name.split(' ').at(-1);
+        fabLoginMini.innerHTML = `<img src="${esc(currentUser.picture)}" class="fab-user-avatar" alt="">`;
+    } else {
+        headerUser.style.display = 'none';
+        fabLoginLabel.textContent = 'Đăng nhập';
+        fabLoginMini.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+    }
+}
+
+function openLoginModal() {
+    document.getElementById('loginOverlay').classList.add('open');
+    setTimeout(() => {
+        const container = document.getElementById('googleSignInBtn');
+        if (!container || !window.google?.accounts?.id) return;
+        container.innerHTML = '';
+        google.accounts.id.renderButton(container, {
+            theme: 'filled_black',
+            size: 'large',
+            text: 'signin_with',
+            width: 280,
+            locale: 'vi',
+        });
+    }, 80);
+}
+
+function closeLoginModal() {
+    document.getElementById('loginOverlay').classList.remove('open');
+}
+
+function openProfileModal() {
+    if (!currentUser) return;
+    document.getElementById('profileAvatar').src = currentUser.picture || '';
+    document.getElementById('profileName').textContent  = currentUser.name;
+    document.getElementById('profileEmail').textContent = currentUser.email;
+    document.getElementById('profileOverlay').classList.add('open');
+}
+
+function closeProfileModal() {
+    document.getElementById('profileOverlay').classList.remove('open');
+}
+
 // ===== Modal helpers =====
 function openAddModal() {
     document.getElementById('modalOverlay').classList.add('open');
@@ -783,6 +872,23 @@ document.getElementById('fabItemAdd').addEventListener('click', () => {
     if (currentView !== 'timers') switchView('timers');
     setTimeout(openAddModal, currentView !== 'timers' ? 100 : 0);
 });
+
+// FAB: Login / Profile
+document.getElementById('fabItemLogin').addEventListener('click', () => {
+    closeFab();
+    currentUser ? openProfileModal() : openLoginModal();
+});
+
+// Login modal
+document.getElementById('btnLoginClose').addEventListener('click', closeLoginModal);
+document.getElementById('btnLoginCancel').addEventListener('click', closeLoginModal);
+document.getElementById('loginOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeLoginModal(); });
+
+// Profile modal
+document.getElementById('btnProfileClose').addEventListener('click', closeProfileModal);
+document.getElementById('btnProfileCancel').addEventListener('click', closeProfileModal);
+document.getElementById('btnSignOut').addEventListener('click', signOut);
+document.getElementById('profileOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeProfileModal(); });
 
 // FAB: Toggle stats
 document.getElementById('fabItemStats').addEventListener('click', () => {
@@ -875,6 +981,8 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         closeAddModal();
         closeConfirmDelete();
+        closeLoginModal();
+        closeProfileModal();
         document.getElementById('confirmClearOverlay').classList.remove('open');
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); openAddModal(); }
@@ -889,8 +997,17 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ===== Boot =====
+try { currentUser = JSON.parse(localStorage.getItem(USER_KEY)); } catch {}
 targets  = loadTargets();
 sessions = loadSessions();
 updateClock();
+updateAuthUI();
 renderAll();
 setInterval(tick, 1000);
+
+// Init Google auth (GIS script loads async)
+if (window.google?.accounts?.id) {
+    initGoogleAuth();
+} else {
+    window.addEventListener('load', () => setTimeout(initGoogleAuth, 200));
+}
