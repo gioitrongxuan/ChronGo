@@ -621,12 +621,14 @@ let fabOpen = false;
 function openFab() {
     fabOpen = true;
     document.getElementById('fab').classList.add('open');
+    document.getElementById('fabBackdrop').classList.add('open');
     document.getElementById('fabMenu').setAttribute('aria-hidden', 'false');
 }
 
 function closeFab() {
     fabOpen = false;
     document.getElementById('fab').classList.remove('open');
+    document.getElementById('fabBackdrop').classList.remove('open');
     document.getElementById('fabMenu').setAttribute('aria-hidden', 'true');
 }
 

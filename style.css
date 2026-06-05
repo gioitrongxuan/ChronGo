@@ -124,15 +124,15 @@ input  { font-family: var(--font); }
 .fab-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    z-index: -1;
-    border: none;
-    cursor: default;
+    background: rgba(0,0,0,0.5);
+    z-index: 89;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
+}
+.fab-backdrop.open {
+    opacity: 1;
+    pointer-events: all;
 }
 
 .fab-menu {
@@ -236,7 +236,6 @@ input  { font-family: var(--font); }
 .fab-icon-close { opacity: 0; transform: rotate(-45deg) scale(0.7); }
 
 /* ===== FAB open state ===== */
-.fab.open .fab-backdrop  { opacity: 1; pointer-events: all; }
 .fab.open .fab-menu      { pointer-events: all; }
 .fab.open .fab-item      { opacity: 1; transform: none; pointer-events: all; }
 .fab.open .fab-main      { background: var(--surface3); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
