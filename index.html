@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ChronGo – Đếm ngược đa mục tiêu &amp; thống kê thời gian">
     <title>ChronGo – Đếm Ngược</title>
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=12">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='https://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱</text></svg>">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -160,6 +160,19 @@
             <div class="breakdown-block" id="breakdownBlock">
                 <h3 class="section-title">Theo mục tiêu</h3>
                 <div class="breakdown-list" id="breakdownList"></div>
+            </div>
+
+            <!-- Smart Insights -->
+            <div class="insights-block" id="insightsBlock" style="display:none">
+                <h3 class="section-title">💡 Gợi ý thông minh</h3>
+                <div id="insightsDistWrap">
+                    <p class="insights-sub">Phân bổ thời gian</p>
+                    <div class="insights-list" id="insightsDist"></div>
+                </div>
+                <div id="insightsPeakWrap" style="margin-top:18px">
+                    <p class="insights-sub">Thời điểm hiệu quả nhất trong ngày</p>
+                    <div class="insights-list" id="insightsPeak"></div>
+                </div>
             </div>
 
             <!-- Recent sessions -->
@@ -340,6 +353,6 @@
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=12"></script>
 </body>
 </html>
