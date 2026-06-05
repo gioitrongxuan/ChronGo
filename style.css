@@ -499,6 +499,21 @@ input  { font-family: var(--font); }
 }
 .btn-reset:hover { border-color: var(--text-muted); color: var(--text); }
 
+.btn-complete {
+    flex: 0;
+    padding: 10px 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(107,203,119,0.4);
+    background: rgba(107,203,119,0.08);
+    color: var(--success);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.btn-complete:hover { background: rgba(107,203,119,0.2); border-color: var(--success); }
+
 /* ===== STATS VIEW ===== */
 
 /* Stats top bar */
