@@ -168,6 +168,7 @@ function buildCard(t) {
 
     const actionBtnClass = `btn-action${overdue ? ' overdue' : ''}`;
     const actionBtnStyle = overdue ? '' : `background:${completed ? 'var(--success)' : t.color}`;
+    const showCompleteBtn = t.status === 'running' && !overdue;
 
     card.innerHTML = `
         <div class="card-header">
@@ -195,6 +196,7 @@ function buildCard(t) {
             <button class="${actionBtnClass}" data-id="${t.id}" style="${actionBtnStyle}">
                 ${actionSvg} ${actionLabel}
             </button>
+            ${showCompleteBtn ? `<button class="btn-complete" data-id="${t.id}" title="Hoàn thành sớm">✓</button>` : ''}
             <button class="btn-reset" data-id="${t.id}" title="Đặt lại">↺</button>
         </div>`;
 
@@ -203,6 +205,8 @@ function buildCard(t) {
         e.stopPropagation();
         completed ? restartTimer(t.id) : toggleTimer(t.id);
     });
+    const btnComplete = card.querySelector('.btn-complete');
+    if (btnComplete) btnComplete.addEventListener('click', e => { e.stopPropagation(); completeTimer(t.id); });
     card.querySelector('.btn-reset').addEventListener('click', e => { e.stopPropagation(); resetTimer(t.id); });
     card.addEventListener('click', () => { completed ? restartTimer(t.id) : toggleTimer(t.id); });
     return card;
@@ -309,6 +313,21 @@ function resetTimer(id) {
     saveTargets();
     renderAll();
     showToast(`↺ Đã đặt lại "${t.name}"`);
+}
+
+function completeTimer(id) {
+    const t = targets.find(x => x.id === id);
+    if (!t || t.status !== 'running') return;
+    const rem     = getRemaining(t);
+    const elapsed = t.remainingAtStart - rem;
+    recordSession(t, elapsed);
+    t.remaining        = 0;
+    t.remainingAtStart = 0;
+    t.startedAt        = null;
+    t.status           = 'completed';
+    saveTargets();
+    renderAll();
+    showToast(`🎉 Hoàn thành "${t.name}"!`);
 }
 
 function restartTimer(id) {
