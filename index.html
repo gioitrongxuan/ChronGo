@@ -26,6 +26,31 @@
 
         <!-- ====== TIMERS VIEW ====== -->
         <main class="main view-panel" id="viewTimers">
+
+            <!-- Day overview -->
+            <div class="day-overview" id="dayOverview">
+                <div class="day-bar">
+                    <div class="day-bar-elapsed" id="dovElapsed"></div>
+                    <div class="day-bar-committed" id="dovCommitted"></div>
+                </div>
+                <div class="dov-stats">
+                    <div class="dov-stat">
+                        <span class="dov-stat-value" id="dovStatElapsed">—</span>
+                        <span class="dov-stat-label">Đã qua</span>
+                    </div>
+                    <div class="dov-divider"></div>
+                    <div class="dov-stat">
+                        <span class="dov-stat-value accent" id="dovStatCommitted">—</span>
+                        <span class="dov-stat-label">Mục tiêu</span>
+                    </div>
+                    <div class="dov-divider"></div>
+                    <div class="dov-stat">
+                        <span class="dov-stat-value free" id="dovStatFree">—</span>
+                        <span class="dov-stat-label">Còn trống</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Summary bar -->
             <div class="summary-bar" id="summaryBar" style="display:none">
                 <div class="summary-item">
@@ -76,6 +101,17 @@
                 </div>
                 <button class="btn-icon-muted" id="btnClearStats" title="Xóa lịch sử">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+            </div>
+
+            <!-- Period navigation -->
+            <div class="period-nav" id="periodNav">
+                <button class="btn-period-nav" id="btnPeriodPrev" title="Khoảng trước" aria-label="Khoảng trước">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span class="period-label" id="periodLabel">Tuần này</span>
+                <button class="btn-period-nav" id="btnPeriodNext" title="Khoảng sau" aria-label="Khoảng sau" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
             </div>
 
