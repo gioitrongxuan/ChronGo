@@ -379,6 +379,18 @@ input  { font-family: var(--font); }
 }
 @keyframes pulseBar { 0%,100%{opacity:.9} 50%{opacity:.25} }
 
+.target-card.state-completed {
+    border-color: var(--success);
+    box-shadow: 0 0 20px rgba(107,203,119,0.18), var(--shadow-sm);
+}
+.target-card.state-completed::before {
+    background: var(--success);
+}
+.status-badge.completed {
+    background: rgba(107,203,119,0.12);
+    color: var(--success);
+}
+
 .card-header { display: flex; align-items: flex-start; gap: 8px; }
 .card-name { flex: 1; font-size: 1rem; font-weight: 600; color: var(--text); word-break: break-word; }
 .card-delete {
