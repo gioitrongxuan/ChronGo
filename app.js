@@ -7,7 +7,7 @@ const USER_KEY     = 'chrongo_user';
 
 // Replace with your Google Cloud OAuth 2.0 client ID
 // (APIs & Services → Credentials → OAuth 2.0 Client IDs)
-const GOOGLE_CLIENT_ID  = '467685882670-s7hrebqib6p0t03j1vqqhatdlear0f9m.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID  = '467685882670-6rr0fnqdpch5gk78b188fqa8j6m0j47d.apps.googleusercontent.com';
 
 // Get from Supabase: Project Settings → API
 const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
