@@ -133,30 +133,41 @@ function renderAll() {
 }
 
 function buildCard(t) {
-    const rem      = getRemaining(t);
-    const overdue  = rem < 0;
-    const progress = t.total > 0 ? Math.max(0, Math.min(100, (rem / t.total) * 100)) : 0;
+    const rem       = getRemaining(t);
+    const completed = t.status === 'completed';
+    const overdue   = !completed && rem < 0;
+    const progress  = completed ? 100 : (t.total > 0 ? Math.max(0, Math.min(100, (rem / t.total) * 100)) : 0);
 
-    const stateClass = overdue ? 'overdue' : t.status;
+    const stateClass = completed ? 'completed' : (overdue ? 'overdue' : t.status);
     const card = document.createElement('div');
     card.className = `target-card state-${stateClass}`;
     card.dataset.id = t.id;
-    card.style.setProperty('--card-color', overdue ? 'var(--danger)' : t.color);
+    card.style.setProperty('--card-color', completed ? 'var(--success)' : (overdue ? 'var(--danger)' : t.color));
 
-    const statusText = {
+    const statusText = completed ? 'Hoàn thành' : {
         idle:    'Chưa bắt đầu',
         running: overdue ? 'Quá hạn' : 'Đang chạy',
         paused:  'Tạm dừng',
     }[overdue ? 'running' : t.status] || 'Chưa bắt đầu';
 
-    const badgeClass = overdue ? 'overdue' : (t.status === 'idle' ? 'idle' : t.status);
+    const badgeClass = completed ? 'completed' : (overdue ? 'overdue' : (t.status === 'idle' ? 'idle' : t.status));
     const savedLabel = t.status === 'paused' && !overdue
         ? `<span class="saved-label">💾 Đã lưu</span>` : '';
 
-    const actionSvg = t.status === 'running'
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-    const actionLabel = t.status === 'running' ? 'Tạm dừng' : (t.status === 'paused' ? 'Tiếp tục' : 'Bắt đầu');
+    let actionSvg, actionLabel;
+    if (completed) {
+        actionSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+        actionLabel = 'Bắt đầu lại';
+    } else if (t.status === 'running') {
+        actionSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+        actionLabel = overdue ? 'Hoàn thành' : 'Tạm dừng';
+    } else {
+        actionSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+        actionLabel = t.status === 'paused' ? 'Tiếp tục' : 'Bắt đầu';
+    }
+
+    const actionBtnClass = `btn-action${overdue ? ' overdue' : ''}`;
+    const actionBtnStyle = overdue ? '' : `background:${completed ? 'var(--success)' : t.color}`;
 
     card.innerHTML = `
         <div class="card-header">
@@ -168,11 +179,11 @@ function buildCard(t) {
             </button>
         </div>
         <div class="timer-display ${overdue ? 'is-overdue' : ''}" data-timer="${t.id}">
-            ${formatSeconds(rem)}
+            ${completed ? '00:00' : formatSeconds(rem)}
         </div>
         <div class="progress-track">
             <div class="progress-fill ${overdue ? 'is-overdue' : ''}" data-progress="${t.id}"
-                 style="width:${progress}%; background:${overdue ? 'var(--danger)' : t.color}"></div>
+                 style="width:${progress}%; background:${completed ? 'var(--success)' : (overdue ? 'var(--danger)' : t.color)}"></div>
         </div>
         <div class="card-status">
             <span class="status-badge ${badgeClass}">
@@ -181,17 +192,19 @@ function buildCard(t) {
             ${savedLabel}
         </div>
         <div class="card-actions">
-            <button class="btn-action ${overdue ? 'overdue' : ''}" data-id="${t.id}"
-                    style="${overdue ? '' : `background:${t.color}`}">
+            <button class="${actionBtnClass}" data-id="${t.id}" style="${actionBtnStyle}">
                 ${actionSvg} ${actionLabel}
             </button>
             <button class="btn-reset" data-id="${t.id}" title="Đặt lại">↺</button>
         </div>`;
 
     card.querySelector('.card-delete').addEventListener('click', e => { e.stopPropagation(); openConfirmDelete(t.id); });
-    card.querySelector('.btn-action').addEventListener('click', e => { e.stopPropagation(); toggleTimer(t.id); });
+    card.querySelector('.btn-action').addEventListener('click', e => {
+        e.stopPropagation();
+        completed ? restartTimer(t.id) : toggleTimer(t.id);
+    });
     card.querySelector('.btn-reset').addEventListener('click', e => { e.stopPropagation(); resetTimer(t.id); });
-    card.addEventListener('click', () => toggleTimer(t.id));
+    card.addEventListener('click', () => { completed ? restartTimer(t.id) : toggleTimer(t.id); });
     return card;
 }
 
@@ -253,11 +266,19 @@ function toggleTimer(id) {
         const rem = getRemaining(t);
         const elapsed = t.remainingAtStart - rem;
         recordSession(t, elapsed);
-        t.remaining        = rem;
-        t.remainingAtStart = rem;
-        t.startedAt        = null;
-        t.status           = 'paused';
-        showToast(`⏸ Đã tạm dừng "${t.name}" — trạng thái được lưu`);
+        if (rem <= 0) {
+            t.remaining        = 0;
+            t.remainingAtStart = 0;
+            t.startedAt        = null;
+            t.status           = 'completed';
+            showToast(`🎉 Hoàn thành "${t.name}"!`);
+        } else {
+            t.remaining        = rem;
+            t.remainingAtStart = rem;
+            t.startedAt        = null;
+            t.status           = 'paused';
+            showToast(`⏸ Đã tạm dừng "${t.name}" — trạng thái được lưu`);
+        }
     } else {
         t.remainingAtStart = t.remaining;
         t.startedAt        = Date.now();
@@ -288,6 +309,17 @@ function resetTimer(id) {
     saveTargets();
     renderAll();
     showToast(`↺ Đã đặt lại "${t.name}"`);
+}
+
+function restartTimer(id) {
+    const t = targets.find(x => x.id === id);
+    if (!t) return;
+    t.remaining        = t.total;
+    t.remainingAtStart = t.total;
+    t.startedAt        = Date.now();
+    t.status           = 'running';
+    saveTargets();
+    renderAll();
 }
 
 function addTarget({ name, hours, minutes, seconds, color }) {
