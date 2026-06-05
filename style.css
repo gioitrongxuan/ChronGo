@@ -575,6 +575,48 @@ input  { font-family: var(--font); }
 }
 .btn-icon-muted:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
 
+/* Period navigation */
+.period-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.btn-period-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+.btn-period-nav:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(78,205,196,0.07);
+}
+.btn-period-nav:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.period-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 180px;
+    text-align: center;
+    white-space: nowrap;
+}
+
 /* Stat cards */
 .stat-cards {
     display: grid;

@@ -18,6 +18,7 @@ let selectedColor = '#4ECDC4';
 let deleteTargetId = null;
 let currentView   = 'timers';
 let currentPeriod = 'week';
+let periodOffset  = 0;
 
 // ===== Persistence =====
 function loadTargets()  { try { return JSON.parse(localStorage.getItem(TARGETS_KEY))  || []; } catch { return []; } }
@@ -385,7 +386,7 @@ function confirmDelete() {
 
 // ===== Stats logic =====
 
-function getDateRange(period) {
+function getDateRange(period, offset = periodOffset) {
     const now  = new Date();
     const year = now.getFullYear();
     const month= now.getMonth();
@@ -395,25 +396,47 @@ function getDateRange(period) {
     let start, end;
 
     if (period === 'day') {
-        start = new Date(year, month, date, 0, 0, 0);
-        end   = new Date(year, month, date, 23, 59, 59, 999);
+        const d = new Date(year, month, date + offset);
+        start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+        end   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
     } else if (period === 'week') {
         // Mon→Sun week
         const diffToMon = (dow === 0) ? 6 : (dow - 1);
-        start = new Date(year, month, date - diffToMon, 0, 0, 0);
+        const mon = new Date(year, month, date - diffToMon + offset * 7);
+        start = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate(), 0, 0, 0);
         end   = new Date(start);
         end.setDate(start.getDate() + 6);
         end.setHours(23, 59, 59, 999);
     } else if (period === 'month') {
-        start = new Date(year, month, 1);
-        end   = new Date(year, month + 1, 0, 23, 59, 59, 999);
+        start = new Date(year, month + offset, 1);
+        end   = new Date(year, month + offset + 1, 0, 23, 59, 59, 999);
     } else {
         // year
-        start = new Date(year, 0, 1);
-        end   = new Date(year, 11, 31, 23, 59, 59, 999);
+        start = new Date(year + offset, 0, 1);
+        end   = new Date(year + offset, 11, 31, 23, 59, 59, 999);
     }
 
     return { start, end };
+}
+
+function getPeriodLabel(period, offset = periodOffset) {
+    if (offset === 0) {
+        return { day: 'Hôm nay', week: 'Tuần này', month: 'Tháng này', year: 'Năm nay' }[period];
+    }
+    if (period === 'day' && offset === -1) return 'Hôm qua';
+    const { start, end } = getDateRange(period, offset);
+    if (period === 'day') {
+        return `${start.getDate()}/${start.getMonth()+1}/${start.getFullYear()}`;
+    } else if (period === 'week') {
+        const sy = start.getFullYear(), ey = end.getFullYear();
+        const ss = `${start.getDate()}/${start.getMonth()+1}`;
+        const es = `${end.getDate()}/${end.getMonth()+1}`;
+        return sy === ey ? `${ss} – ${es}/${ey}` : `${ss}/${sy} – ${es}/${ey}`;
+    } else if (period === 'month') {
+        return `${MONTHS_VI[start.getMonth()]} ${start.getFullYear()}`;
+    } else {
+        return `Năm ${start.getFullYear()}`;
+    }
 }
 
 function filterSessions(period) {
@@ -536,9 +559,11 @@ function renderStats() {
     const bd = bestDay(filtered);
     document.getElementById('statBestDay').textContent = bd ? `${bd.label} (${formatDuration(bd.sec)})` : '—';
 
-    // Chart title
+    // Chart title & period navigation label
     const titles = { day:'Theo giờ trong ngày', week:'Theo ngày trong tuần', month:'Theo ngày trong tháng', year:'Theo tháng trong năm' };
     document.getElementById('chartTitle').textContent = titles[currentPeriod];
+    document.getElementById('periodLabel').textContent = getPeriodLabel(currentPeriod);
+    document.getElementById('btnPeriodNext').disabled = periodOffset >= 0;
 
     // Bar chart
     renderBarChart(buildChartData(currentPeriod));
@@ -685,7 +710,13 @@ function closeFab() {
 
 function switchPeriod(period) {
     currentPeriod = period;
+    periodOffset  = 0;
     document.querySelectorAll('.period-tab').forEach(b => b.classList.toggle('active', b.dataset.period === period));
+    renderStats();
+}
+
+function navigatePeriod(delta) {
+    periodOffset = Math.min(0, periodOffset + delta);
     renderStats();
 }
 
@@ -733,6 +764,11 @@ document.getElementById('fabItemStats').addEventListener('click', () => {
 document.getElementById('btnAddEmpty').addEventListener('click', openAddModal);
 
 // Period tabs
+document.querySelectorAll('.period-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchPeriod(btn.dataset.period));
+});
+document.getElementById('btnPeriodPrev').addEventListener('click', () => navigatePeriod(-1));
+document.getElementById('btnPeriodNext').addEventListener('click', () => navigatePeriod(+1));
 
 // Modal
 document.getElementById('btnModalClose').addEventListener('click', closeAddModal);
