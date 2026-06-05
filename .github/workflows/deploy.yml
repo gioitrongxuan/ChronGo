@@ -24,21 +24,31 @@ jobs:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
 
+      # ── Trim whitespace from secrets (trailing spaces break SSH hostname) ───
+      - name: 🧹 Clean secret values
+        run: |
+          EC2_HOST_CLEAN=$(printf '%s' "${{ secrets.EC2_HOST }}"     | tr -d '[:space:]')
+          EC2_USER_CLEAN=$(printf '%s' "${{ secrets.EC2_USERNAME }}" | tr -d '[:space:]')
+          echo "EC2_HOST_CLEAN=${EC2_HOST_CLEAN}" >> $GITHUB_ENV
+          echo "EC2_USER_CLEAN=${EC2_USER_CLEAN}" >> $GITHUB_ENV
+
       # ── SSH setup ──────────────────────────────────────────────────────────
       - name: 🔑 Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          # echo preserves embedded newlines in the PEM key
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          # Pre-scan host key to avoid interactive prompt
+          ssh-keyscan -T 10 -H "${{ env.EC2_HOST_CLEAN }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # ── Prepare remote directory ────────────────────────────────────────────
       - name: 📁 Prepare web directory on EC2
         run: |
           ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=15 \
-              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+              -o ConnectTimeout=20 \
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}" \
               "sudo mkdir -p ${{ env.DEPLOY_PATH }} && \
                sudo chown -R \$USER:\$USER ${{ env.DEPLOY_PATH }}"
 
@@ -50,29 +60,26 @@ jobs:
             --exclude='.github/' \
             --exclude='nginx/' \
             --exclude='*.md' \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=15" \
-            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:${{ env.DEPLOY_PATH }}/"
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=20" \
+            ./ "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}:${{ env.DEPLOY_PATH }}/"
 
       # ── Copy and apply nginx config ────────────────────────────────────────
       - name: ⚙️ Configure nginx
         run: |
-          # Upload nginx config
           scp -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=no \
               nginx/chrongo.conf \
-              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/tmp/chrongo.conf"
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}:/tmp/chrongo.conf"
 
-          # Install config and reload nginx
           ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=no \
-              "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" << 'EOF'
-          set -e
-          sudo cp /tmp/chrongo.conf /etc/nginx/sites-available/chrongo
-          sudo ln -sf /etc/nginx/sites-available/chrongo /etc/nginx/sites-enabled/chrongo
-          sudo nginx -t
-          sudo systemctl reload nginx
-          echo "✅ Nginx reloaded successfully"
-          EOF
+              "${{ env.EC2_USER_CLEAN }}@${{ env.EC2_HOST_CLEAN }}" \
+              "set -e && \
+               sudo cp /tmp/chrongo.conf /etc/nginx/sites-available/chrongo && \
+               sudo ln -sf /etc/nginx/sites-available/chrongo /etc/nginx/sites-enabled/chrongo && \
+               sudo nginx -t && \
+               sudo systemctl reload nginx && \
+               echo '✅ Nginx reloaded'"
 
       # ── Health check ────────────────────────────────────────────────────────
       - name: 🔍 Health check
@@ -80,7 +87,7 @@ jobs:
           sleep 3
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 10 \
-            "http://${{ secrets.EC2_HOST }}" \
+            "http://${{ env.EC2_HOST_CLEAN }}" \
             -H "Host: ${{ env.DOMAIN }}" || echo "000")
           echo "HTTP status: $STATUS"
           if [[ "$STATUS" == "200" || "$STATUS" == "301" || "$STATUS" == "302" ]]; then
