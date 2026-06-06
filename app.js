@@ -129,7 +129,30 @@ function updateDayOverview() {
     const committedPct = Math.min((committed / TOTAL) * 100, 100 - elapsedPct);
 
     document.getElementById('dovElapsed').style.width   = `${elapsedPct.toFixed(2)}%`;
-    document.getElementById('dovCommitted').style.width = `${committedPct.toFixed(2)}%`;
+
+    const committedEl = document.getElementById('dovCommitted');
+    committedEl.style.left  = `${elapsedPct.toFixed(2)}%`;
+    committedEl.style.width = `${committedPct.toFixed(2)}%`;
+
+    const todayStr  = localDateStr(Date.now());
+    const midnight  = new Date(); midnight.setHours(0, 0, 0, 0);
+    const sessionsEl = document.getElementById('dovSessions');
+    sessionsEl.innerHTML = '';
+    sessions
+        .filter(s => s.date === todayStr)
+        .forEach(s => {
+            const startSec  = Math.max(0, (s.startedAt - midnight.getTime()) / 1000);
+            const endSec    = Math.min(86400, (s.endedAt - midnight.getTime()) / 1000);
+            const spanSec   = Math.max(0, endSec - startSec);
+            const startPct  = (startSec / 86400) * 100;
+            const widthPct  = Math.max(0.15, (spanSec / 86400) * 100);
+            const mark      = document.createElement('div');
+            mark.className  = 'day-bar-session';
+            mark.style.cssText = `left:${startPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${s.targetColor}`;
+            const startTime = new Date(s.startedAt).toLocaleTimeString('vi', { hour: '2-digit', minute: '2-digit' });
+            mark.title = `${s.targetName}: ${formatDuration(s.actualSec)} (${startTime})`;
+            sessionsEl.appendChild(mark);
+        });
 
     document.getElementById('dovStatElapsed').textContent   = formatDuration(elapsed);
     document.getElementById('dovStatCommitted').textContent = committed > 0 ? formatDuration(committed) : '—';

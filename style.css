@@ -261,7 +261,7 @@ input  { font-family: var(--font); }
 }
 
 .day-bar {
-    display: flex;
+    position: relative;
     height: 9px;
     border-radius: 5px;
     overflow: hidden;
@@ -270,17 +270,40 @@ input  { font-family: var(--font); }
 }
 
 .day-bar-elapsed {
-    background: var(--surface3);
+    position: absolute;
+    left: 0;
+    top: 0;
     height: 100%;
-    border-right: 2px solid var(--bg);
+    background: var(--surface3);
     transition: width 1s linear;
 }
 
 .day-bar-committed {
-    background: var(--accent);
+    position: absolute;
+    top: 0;
     height: 100%;
+    background: var(--accent);
     opacity: 0.75;
-    transition: width 0.4s ease;
+    transition: width 0.4s ease, left 0.4s ease;
+}
+
+.day-bar-session {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    opacity: 0.85;
+    min-width: 2px;
+    z-index: 2;
+}
+
+.day-bar-tick {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    background: rgba(255,255,255,0.12);
+    z-index: 5;
+    pointer-events: none;
 }
 
 .dov-stats {
