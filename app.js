@@ -4,6 +4,7 @@
 const TARGETS_KEY  = 'chrongo_v1';
 const SESSIONS_KEY = 'chrongo_sessions_v1';
 const USER_KEY     = 'chrongo_user';
+const SOUND_KEY    = 'chrongo_sound';
 
 // Replace with your Google Cloud OAuth 2.0 client ID
 // (APIs & Services → Credentials → OAuth 2.0 Client IDs)
@@ -31,6 +32,7 @@ let currentPeriod = 'week';
 let periodOffset  = 0;
 let currentUser    = null;
 let supabaseClient = null;
+let currentSound   = localStorage.getItem(SOUND_KEY) || 'beep';
 
 // ===== Persistence =====
 function targetsKey()  { return currentUser ? `${TARGETS_KEY}_${currentUser.id}`  : TARGETS_KEY; }
@@ -302,6 +304,7 @@ function tick() {
             if (badge) { badge.className = 'status-badge overdue'; badge.innerHTML = '<span class="status-dot"></span>Quá hạn'; }
             const btn = card.querySelector('.btn-action');
             if (btn) { btn.classList.add('overdue'); btn.style.background = ''; }
+            playSound(currentSound);
         }
     });
 
@@ -375,6 +378,63 @@ function completeTimer(id) {
     saveTargets();
     renderAll();
     showToast(`🎉 Hoàn thành "${t.name}"!`);
+    playSound(currentSound);
+}
+
+// ===== Sound =====
+function playSound(type) {
+    if (type === 'none') return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (type === 'beep') {
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start(); osc.stop(ctx.currentTime + 0.35);
+        } else if (type === 'ding') {
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.value = 1318;
+            gain.gain.setValueAtTime(0.35, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+            osc.start(); osc.stop(ctx.currentTime + 1.2);
+        } else if (type === 'chime') {
+            [523, 659, 784, 1047].forEach((freq, i) => {
+                const osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = freq;
+                const t = ctx.currentTime + i * 0.18;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+                osc.start(t); osc.stop(t + 1.0);
+            });
+        } else if (type === 'alarm') {
+            for (let i = 0; i < 3; i++) {
+                const osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = i % 2 === 0 ? 880 : 660;
+                const t = ctx.currentTime + i * 0.28;
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+                osc.start(t); osc.stop(t + 0.22);
+            }
+        }
+    } catch (e) {}
+}
+
+function openSoundModal() {
+    closeFab();
+    document.querySelectorAll('#soundOptions .sound-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sound === currentSound);
+    });
+    document.getElementById('soundOverlay').classList.add('open');
+}
+
+function closeSoundModal() {
+    document.getElementById('soundOverlay').classList.remove('open');
 }
 
 function restartTimer(id) {
@@ -1080,6 +1140,23 @@ document.getElementById('fabItemAdd').addEventListener('click', () => {
 
 // AI Analyze button
 document.getElementById('btnAnalyzeAI').addEventListener('click', analyzeWithAI);
+
+// FAB: Sound settings
+document.getElementById('fabItemSound').addEventListener('click', openSoundModal);
+
+// Sound modal
+document.getElementById('soundOptions').addEventListener('click', e => {
+    const btn = e.target.closest('.sound-btn');
+    if (!btn) return;
+    currentSound = btn.dataset.sound;
+    localStorage.setItem(SOUND_KEY, currentSound);
+    document.querySelectorAll('#soundOptions .sound-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.sound === currentSound);
+    });
+    playSound(currentSound);
+});
+document.getElementById('btnSoundClose').addEventListener('click', closeSoundModal);
+document.getElementById('soundOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeSoundModal(); });
 
 // FAB: Login / Profile
 document.getElementById('fabItemLogin').addEventListener('click', () => {
