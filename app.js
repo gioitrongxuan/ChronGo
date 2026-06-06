@@ -704,18 +704,10 @@ Trả về JSON, không có text khác:
 {"hourly":[{"hour":0,"efficiency":0},…,{"hour":23,"efficiency":0}],"peaks":[{"start":9,"end":11,"label":"Tên đỉnh","efficiency":87}],"summary":"nhận xét 1-2 câu tiếng Việt"}`;
 
     try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        const token = session?.access_token ?? SUPABASE_ANON_KEY;
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-sessions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ hourly, targetStr }),
+        const { data: result, error: fnError } = await supabaseClient.functions.invoke('analyze-sessions', {
+            body: { hourly, targetStr },
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const result = await res.json();
+        if (fnError) throw new Error(fnError.message);
 
         document.getElementById('aiLoading').style.display = 'none';
         document.getElementById('aiResult').style.display  = '';
