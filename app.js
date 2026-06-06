@@ -679,6 +679,9 @@ function renderStats() {
     // Target breakdown
     renderBreakdown(breakdownByTarget(filtered), totalSec);
 
+    // Gantt chart
+    renderGanttChart(filtered);
+
     // Sessions list
     renderSessionsList(filtered.slice().reverse().slice(0, 50));
 }
@@ -732,6 +735,109 @@ function renderBreakdown(items, totalSec) {
             <div class="breakdown-pct">${pct}%</div>`;
         list.appendChild(row);
     });
+}
+
+// ===== Gantt Chart =====
+function renderGanttChart(filtered) {
+    const el = document.getElementById('ganttChart');
+    if (!el) return;
+
+    if (!filtered.length) {
+        el.setAttribute('viewBox', '0 0 400 44');
+        el.setAttribute('width', '100%');
+        el.innerHTML = '<text x="200" y="28" text-anchor="middle" font-size="11" fill="#505070">Không có dữ liệu</text>';
+        return;
+    }
+
+    // Unique targets, ordered by first session
+    const seenTargets = new Map();
+    filtered.slice().sort((a, b) => a.startedAt - b.startedAt).forEach(s => {
+        if (!seenTargets.has(s.targetId))
+            seenTargets.set(s.targetId, { id: s.targetId, name: s.targetName, color: s.targetColor });
+    });
+    const rows = [...seenTargets.values()];
+
+    const { start: rangeStart, end: rangeEnd } = getDateRange(currentPeriod);
+    const rangeMs = rangeEnd.getTime() - rangeStart.getTime();
+
+    const VW = 600, LABEL_W = 112, AXIS_H = 22, ROW_H = 22, ROW_GAP = 5, ROW_STEP = ROW_H + ROW_GAP;
+    const chartW = VW - LABEL_W - 4;
+    const innerH = rows.length * ROW_STEP - ROW_GAP;
+    const VH     = innerH + AXIS_H + 6;
+    const toX    = ms => LABEL_W + Math.min(chartW, Math.max(0, (ms / rangeMs) * chartW));
+
+    // X-axis grid + labels
+    let grid = '', xLabels = '';
+    const gridLine = x =>
+        `<line x1="${x}" y1="0" x2="${x}" y2="${innerH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    const xLabel = (x, text) =>
+        `<text x="${x}" y="${VH - 3}" text-anchor="middle" font-size="9" fill="#505070">${text}</text>`;
+
+    if (currentPeriod === 'day') {
+        for (let h = 0; h <= 24; h += 4) {
+            const x = toX(h * 3600000);
+            grid += gridLine(x);
+            xLabels += xLabel(x, `${h}h`);
+        }
+    } else if (currentPeriod === 'week') {
+        const WD = ['T2','T3','T4','T5','T6','T7','CN'];
+        for (let d = 0; d <= 7; d++) {
+            const x = toX(d * 86400000);
+            grid += gridLine(x);
+            if (d < 7) xLabels += xLabel(toX((d + 0.5) * 86400000), WD[d]);
+        }
+    } else if (currentPeriod === 'month') {
+        const daysInMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + 1, 0).getDate();
+        [1, 5, 10, 15, 20, 25, daysInMonth].forEach(d => {
+            const x = toX((d - 1) * 86400000);
+            grid += gridLine(x);
+            xLabels += xLabel(x, String(d));
+        });
+    } else {
+        for (let m = 0; m < 12; m++) {
+            const ms = new Date(rangeStart.getFullYear(), m, 1).getTime() - rangeStart.getTime();
+            grid += gridLine(toX(ms));
+            xLabels += xLabel(toX(new Date(rangeStart.getFullYear(), m, 15).getTime() - rangeStart.getTime()), MONTHS_SHORT[m]);
+        }
+    }
+
+    // Row backgrounds + labels
+    let rowBgs = '', labels = '';
+    rows.forEach((t, i) => {
+        const y = i * ROW_STEP, cy = y + ROW_H / 2;
+        rowBgs += `<rect x="${LABEL_W}" y="${y}" width="${chartW}" height="${ROW_H}" fill="${i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0)'}"/>`;
+        const name = t.name.length > 13 ? t.name.slice(0, 12) + '…' : t.name;
+        labels += `<circle cx="${LABEL_W - 10}" cy="${cy}" r="4" fill="${t.color}"/>`;
+        labels += `<text x="${LABEL_W - 18}" y="${cy + 4}" text-anchor="end" font-size="10.5" fill="#a0a0c0">${esc(name)}</text>`;
+    });
+
+    // Session bars
+    let bars = '';
+    filtered.forEach(s => {
+        const ri = rows.findIndex(t => t.id === s.targetId);
+        if (ri < 0) return;
+        const clampedStart = Math.max(rangeStart.getTime(), s.startedAt);
+        const startMs = clampedStart - rangeStart.getTime();
+        const durMs   = Math.min(s.actualSec * 1000, rangeEnd.getTime() - clampedStart);
+        const x = toX(startMs);
+        const w = Math.max(3, (durMs / rangeMs) * chartW);
+        const y = ri * ROW_STEP + 2;
+        const timeStr = new Date(s.startedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        bars += `<rect x="${x.toFixed(1)}" y="${y}" width="${Math.min(w, LABEL_W + chartW - x).toFixed(1)}" height="${ROW_H - 4}" fill="${s.targetColor}" rx="2" opacity="0.82"><title>${esc(s.targetName)} · ${timeStr} · ${formatDuration(s.actualSec)}</title></rect>`;
+    });
+
+    // "Now" line on today's day view
+    let nowLine = '';
+    if (currentPeriod === 'day' && periodOffset === 0) {
+        const now = new Date();
+        const nowMs = now.getHours() * 3600000 + now.getMinutes() * 60000;
+        const nx = toX(nowMs);
+        nowLine = `<line x1="${nx}" y1="0" x2="${nx}" y2="${innerH}" stroke="#4ECDC4" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`;
+    }
+
+    el.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+    el.setAttribute('width', '100%');
+    el.innerHTML = rowBgs + grid + nowLine + labels + bars + xLabels;
 }
 
 // ===== AI Analysis (DeepSeek) =====

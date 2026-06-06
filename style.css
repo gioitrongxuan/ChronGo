@@ -758,6 +758,9 @@ input  { font-family: var(--font); }
 
 .bar-chart-wrap { overflow-x: auto; }
 
+.gantt-wrap { overflow-x: auto; }
+.gantt-chart { display: block; min-width: 300px; }
+
 .bar-chart {
     display: flex;
     align-items: flex-end;
