@@ -1211,12 +1211,22 @@ async function loadFromCloud() {
         supabaseClient.from('sessions').select('*').order('ended_at',  { ascending: true }),
     ]);
     if (!tErr && tRows) {
-        targets = tRows.map(rowToTarget);
-        try { localStorage.setItem(targetsKey(), JSON.stringify(targets)); } catch {}
+        if (tRows.length > 0) {
+            targets = tRows.map(rowToTarget);
+            try { localStorage.setItem(targetsKey(), JSON.stringify(targets)); } catch {}
+        } else if (targets.length > 0) {
+            // Cloud empty but local has data → backfill to Supabase
+            await syncTargetsUp();
+        }
     }
     if (!sErr && sRows) {
-        sessions = sRows.map(rowToSession);
-        try { localStorage.setItem(sessionsKey(), JSON.stringify(sessions)); } catch {}
+        if (sRows.length > 0) {
+            sessions = sRows.map(rowToSession);
+            try { localStorage.setItem(sessionsKey(), JSON.stringify(sessions)); } catch {}
+        } else if (sessions.length > 0) {
+            // Cloud empty but local has sessions → backfill to Supabase
+            await Promise.all(sessions.map(s => syncSessionUp(s)));
+        }
     }
 }
 
