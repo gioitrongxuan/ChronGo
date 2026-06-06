@@ -11,7 +11,7 @@ const GOOGLE_CLIENT_ID  = '467685882670-6rr0fnqdpch5gk78b188fqa8j6m0j47d.apps.go
 
 // Get from Supabase: Project Settings → API
 const SUPABASE_URL      = 'https://epqohkagzvboncaciynl.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_T7YEl_t8CizWqNAI7R0UiA_ZLTK6W3d';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwcW9oa2FnenZib25jYWNpeW5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzEzNTksImV4cCI6MjA5NjI0NzM1OX0.KlFNBV0O1xJcFMbCbDtCJe0fDNqMY8i3Q9y63oKW3k8';
 
 
 // ===== Vietnamese locale =====
@@ -696,14 +696,8 @@ async function analyzeWithAI() {
     sessions.forEach(s => { targetCounts[s.targetName] = (targetCounts[s.targetName] || 0) + 1; });
     const targetStr = Object.entries(targetCounts).map(([n, c]) => `${n}(${c})`).join(', ');
 
-    const prompt = `Dữ liệu hiệu quả làm việc theo giờ địa phương:
-${JSON.stringify(hourly)}
-Mục tiêu: ${targetStr}
-
-Trả về JSON, không có text khác:
-{"hourly":[{"hour":0,"efficiency":0},…,{"hour":23,"efficiency":0}],"peaks":[{"start":9,"end":11,"label":"Tên đỉnh","efficiency":87}],"summary":"nhận xét 1-2 câu tiếng Việt"}`;
-
     try {
+        if (!supabaseClient) throw new Error('Vui lòng đăng nhập để dùng tính năng AI');
         const { data: result, error: fnError } = await supabaseClient.functions.invoke('analyze-sessions', {
             body: { hourly, targetStr },
         });
